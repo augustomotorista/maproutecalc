@@ -13,6 +13,7 @@ const CONFIG = {
 function initApp() {
     initMap();
     loadSettings();
+    initAutocomplete(); // Adicionado para o autocompletar
     loadHistory();
     addEventListeners();
 }
@@ -173,6 +174,70 @@ function loadProfile() {
     else if (profile === 'premium') settings = { baseFare: 10, minFare: 20, costPerKm: 3, costPerMin: 1 };
     Object.keys(settings).forEach(key => document.getElementById(key).value = settings[key]);
     saveConfig(); // Salva automaticamente ao mudar o perfil
+}
+
+function initAutocomplete() {
+    const originInput = document.getElementById('origin');
+    const destinationInput = document.getElementById('destination');
+    const suggestionsContainer = document.getElementById('suggestions');
+    let timeout;
+
+    async function fetchSuggestions(query, input) {
+        if (query.length < 3) {
+            suggestionsContainer.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${CONFIG.endpoints.geocoding}${encodeURIComponent(query)}`);
+            const data = await response.json();
+            if (data && data.length > 0) {
+                suggestionsContainer.innerHTML = data.slice(0, 5).map(item => `
+                    <div class="suggestion-item" data-value="${item.display_name}">
+                        ${item.display_name}
+                    </div>
+                `).join('');
+                suggestionsContainer.style.display = 'block';
+
+                // Posicionar o container abaixo do input ativo
+                const rect = input.getBoundingClientRect();
+                suggestionsContainer.style.top = `${rect.bottom + window.scrollY}px`;
+                suggestionsContainer.style.left = `${rect.left + window.scrollX}px`;
+                suggestionsContainer.style.width = `${rect.width}px`;
+
+                // Adicionar eventos de clique nas sugestões
+                document.querySelectorAll('.suggestion-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        input.value = item.dataset.value;
+                        suggestionsContainer.style.display = 'none';
+                    });
+                });
+            } else {
+                suggestionsContainer.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Erro ao buscar sugestões:', error);
+            suggestionsContainer.style.display = 'none';
+        }
+    }
+
+    // Debounce nos eventos de input
+    originInput.addEventListener('input', (e) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fetchSuggestions(e.target.value, originInput), 300);
+    });
+
+    destinationInput.addEventListener('input', (e) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fetchSuggestions(e.target.value, destinationInput), 300);
+    });
+
+    // Esconder sugestões ao clicar fora
+    document.addEventListener('click', (e) => {
+        if (!originInput.contains(e.target) && !destinationInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+            suggestionsContainer.style.display = 'none';
+        }
+    });
 }
 
 function saveToHistory(ride) {
