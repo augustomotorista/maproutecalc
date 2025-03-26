@@ -1,19 +1,21 @@
 {
     "name": "Cálculo de Trajeto",
-    "short_name": "RouteCalc",
-    "description": "Calculadora inteligente de rotas e custos de viagem",
-    "start_url": ".",
+    "short_name": "MapRouteCalc",
+    "description": "Aplicativo para cálculo de rotas e custos de viagem",
+    "start_url": "/maproutecalc/",
+    "scope": "/maproutecalc/",
     "display": "standalone",
+    "orientation": "portrait",
     "theme_color": "#2563eb",
     "background_color": "#ffffff",
     "icons": [
         {
-            "src": "icons/icon-192.png",
+            "src": "icons/icon-192x192.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "icons/icon-512.png",
+            "src": "icons/icon-512x512.png",
             "sizes": "512x512",
             "type": "image/png"
         }

@@ -17,7 +17,7 @@
 
 body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    height: 100vh;
+    min-height: 100vh;
     width: 1080px;
     max-width: 100%;
     margin: 0 auto;
@@ -47,6 +47,15 @@ header p {
     font-size: 0.95rem;
     opacity: 0.9;
     margin-top: 0.5rem;
+}
+
+/* Mapa (ESSENCIAL) */
+#map {
+    height: 50vh;
+    width: calc(100% - 2rem);
+    margin: 1rem auto;
+    border-radius: 1rem;
+    z-index: 1;
 }
 
 /* Painéis */
@@ -105,17 +114,7 @@ button:hover {
     transform: translateY(-1px);
 }
 
-/* Mapa */
-#map {
-    height: 400px;
-    width: calc(100% - 2rem);
-    margin: 1rem;
-    border-radius: 1rem;
-    box-shadow: var(--shadow);
-    border: 1px solid var(--border-color);
-}
-
-/* Resultados e Histórico */
+/* Resultados */
 .results {
     margin-top: 1.5rem;
     padding: 1rem;
@@ -123,6 +122,14 @@ button:hover {
     border-radius: 0.5rem;
 }
 
+.result-card {
+    background: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow);
+}
+
+/* Histórico */
 .history {
     margin-top: 2rem;
     padding: 1rem;
@@ -138,7 +145,14 @@ button:hover {
     margin-bottom: 1rem;
 }
 
-/* Loader */
+.history-item {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background: #f8fafc;
+    border-radius: 0.5rem;
+}
+
+/* Loader e Mensagens */
 .loading {
     display: none;
     position: fixed;
@@ -168,7 +182,6 @@ button:hover {
     100% { transform: rotate(360deg); }
 }
 
-/* Mensagens */
 .error-message {
     background: var(--error-color);
     color: white;
