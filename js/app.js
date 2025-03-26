@@ -6,28 +6,26 @@ const CONFIG = {
     },
     storageKeys: {
         settings: 'routeCalcSettings',
-        history: 'routeCalcHistory',
-        profiles: 'fareProfiles'
-    },
-    fareProfiles: {
-        padrao: { baseFare: 5, minFare: 10, costPerKm: 2, costPerMin: 0.5 },
-        premium: { baseFare: 10, minFare: 20, costPerKm: 3, costPerMin: 1 }
+        history: 'routeCalcHistory'
     }
 };
 
-// 1. Inicialização
 function initApp() {
     initMap();
     loadSettings();
     initAutocomplete();
     loadHistory();
-    loadProfileSettings();
+    addEventListeners();
 }
 
-// 2. Sistema de Mapa
+function addEventListeners() {
+    document.getElementById('fareProfile').addEventListener('change', loadProfile);
+    document.querySelector('.toggle-btn').addEventListener('click', togglePanel);
+}
+
 function initMap() {
     CONFIG.map = L.map('map', {
-        center: [-23.5505, -46.6333],
+        center: [-23.5505, -46.6333], // São Paulo como padrão
         zoom: 13,
         zoomControl: false
     });
@@ -39,21 +37,19 @@ function initMap() {
     L.control.zoom({ position: 'topright' }).addTo(CONFIG.map);
 }
 
-// 3. Sistema de Rotas
 async function calculateRoute() {
     try {
         showLoading(true);
         clearPreviousRoute();
 
         const settings = getValidatedSettings();
-        const { origin, destination } = getValidatedAddresses();
+        const addresses = getValidatedAddresses();
         
-        const start = await geocodeAddress(origin);
-        const end = await geocodeAddress(destination);
+        const start = await geocodeAddress(addresses.origin);
+        const end = await geocodeAddress(addresses.destination);
 
         const route = await drawRoute(start, end);
-        displayResults(route, settings);
-        saveToHistory(route, settings);
+        displayRouteResults(settings, route);
 
     } catch (error) {
         showError(error.message);
@@ -62,10 +58,15 @@ async function calculateRoute() {
     }
 }
 
+async function geocodeAddress(query) {
+    const response = await fetch(`${CONFIG.endpoints.geocoding}${encodeURIComponent(query)}`);
+    const data = await response.json();
+    if (!data || data.length === 0) throw new Error('Endereço não encontrado');
+    return { lat: data[0].lat, lon: data[0].lon };
+}
+
 async function drawRoute(start, end) {
-    return new Promise((resolve) => {
-        if (CONFIG.routingControl) CONFIG.map.removeControl(CONFIG.routingControl);
-        
+    return new Promise((resolve, reject) => {
         CONFIG.routingControl = L.Routing.control({
             waypoints: [
                 L.latLng(start.lat, start.lon),
@@ -78,99 +79,58 @@ async function drawRoute(start, end) {
         CONFIG.routingControl.on('routesfound', (e) => {
             resolve(e.routes[0]);
         });
+        CONFIG.routingControl.on('routingerror', (e) => {
+            reject(new Error('Erro ao calcular a rota'));
+        });
     });
 }
 
-// 4. Configurações
-function saveConfig() {
-    const settings = {
-        baseFare: parseFloat(document.getElementById('baseFare').value),
-        minFare: parseFloat(document.getElementById('minFare').value),
-        costPerKm: parseFloat(document.getElementById('costPerKm').value),
-        costPerMin: parseFloat(document.getElementById('costPerMin').value)
-    };
+function displayRouteResults(settings, route) {
+    const distance = (route.summary.totalDistance / 1000).toFixed(2);
+    const duration = (route.summary.totalTime / 60).toFixed(2);
+    const total = calculateFare(settings, distance, duration);
 
-    if (Object.values(settings).some(isNaN)) {
-        showError('Preencha todos os campos numéricos!');
-        return;
+    document.getElementById('results').innerHTML = `
+        <div class="result-card">
+            <h3>📝 Resultado da Corrida</h3>
+            <p>Distância: ${distance} km</p>
+            <p>Duração: ${duration} minutos</p>
+            <p class="total">Total: R$ ${total}</p>
+        </div>
+    `;
+
+    saveToHistory({ distance, duration, total });
+}
+
+function calculateFare(settings, distance, duration) {
+    const base = parseFloat(settings.baseFare);
+    const perKm = parseFloat(settings.costPerKm) * parseFloat(distance);
+    const perMin = parseFloat(settings.costPerMin) * parseFloat(duration);
+    const total = base + perKm + perMin;
+    return Math.max(total, parseFloat(settings.minFare)).toFixed(2);
+}
+
+function clearPreviousRoute() {
+    if (CONFIG.routingControl) {
+        CONFIG.map.removeControl(CONFIG.routingControl);
+        CONFIG.routingControl = null;
     }
-
-    localStorage.setItem(CONFIG.storageKeys.settings, JSON.stringify(settings));
-    showMessage('Configurações salvas!', 'success');
+    document.getElementById('results').innerHTML = '';
 }
 
-function loadSettings() {
-    const saved = JSON.parse(localStorage.getItem(CONFIG.storageKeys.settings));
-    if (saved) {
-        document.getElementById('baseFare').value = saved.baseFare || '';
-        document.getElementById('minFare').value = saved.minFare || '';
-        document.getElementById('costPerKm').value = saved.costPerKm || '';
-        document.getElementById('costPerMin').value = saved.costPerMin || '';
-    }
+function getValidatedSettings() {
+    const baseFare = document.getElementById('baseFare').value || 5;
+    const minFare = document.getElementById('minFare').value || 10;
+    const costPerKm = document.getElementById('costPerKm').value || 2;
+    const costPerMin = document.getElementById('costPerMin').value || 0.5;
+    return { baseFare, minFare, costPerKm, costPerMin };
 }
 
-// 5. Perfis de Tarifa
-function loadProfile() {
-    const profile = document.getElementById('fareProfile').value;
-    if (profile === 'custom') return;
-    
-    const selected = CONFIG.fareProfiles[profile];
-    Object.entries(selected).forEach(([key, value]) => {
-        document.getElementById(key).value = value;
-    });
-}
-
-function loadProfileSettings() {
-    const savedProfiles = localStorage.getItem(CONFIG.storageKeys.profiles);
-    if (savedProfiles) {
-        CONFIG.fareProfiles = JSON.parse(savedProfiles);
-    }
-}
-
-// 6. Histórico
-function saveToHistory(route, settings) {
-    const history = JSON.parse(localStorage.getItem(CONFIG.storageKeys.history) || [];
-    
-    history.unshift({
-        date: new Date().toLocaleString(),
-        origin: document.getElementById('origin').value,
-        destination: document.getElementById('destination').value,
-        distance: (route.summary.totalDistance / 1000).toFixed(2),
-        duration: (route.summary.totalTime / 60).toFixed(2),
-        fare: calculateFare(settings, route)
-    });
-
-    localStorage.setItem(CONFIG.storageKeys.history, JSON.stringify(history));
-    loadHistory();
-}
-
-function loadHistory() {
-    const history = JSON.parse(localStorage.getItem(CONFIG.storageKeys.history) || []);
-    document.getElementById('historyList').innerHTML = history
-        .map(ride => `
-            <div class="history-item">
-                <small>${ride.date}</small>
-                <p>${ride.origin} → ${ride.destination}</p>
-                <p>${ride.distance} km • ${ride.duration} min • R$ ${ride.fare}</p>
-            </div>
-        `).join('');
-}
-
-// 7. Funções Auxiliares
-function calculateFare(settings, route) {
-    const distance = route.summary.totalDistance / 1000;
-    const duration = route.summary.totalTime / 60;
-    const total = settings.baseFare + (distance * settings.costPerKm) + (duration * settings.costPerMin);
-    return Math.max(total, settings.minFare).toFixed(2);
-}
-
-function togglePanel() {
-    document.querySelector('.config-panel').classList.toggle('collapsed');
-}
-
-function clearHistory() {
-    localStorage.removeItem(CONFIG.storageKeys.history);
-    loadHistory();
+function getValidatedAddresses() {
+    const origin = document.getElementById('origin').value.trim();
+    const destination = document.getElementById('destination').value.trim();
+    if (!origin || !destination) throw new Error('Preencha ambos os endereços');
+    return { origin, destination };
 }
 
 function showLoading(show) {
@@ -178,12 +138,127 @@ function showLoading(show) {
 }
 
 function showError(message) {
-    const el = document.createElement('div');
-    el.className = 'error-message';
-    el.textContent = message;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 5000);
+    alert(message); // Pode ser substituído por um modal mais elegante
 }
 
-// Inicialização
+function loadSettings() {
+    const settings = JSON.parse(localStorage.getItem(CONFIG.storageKeys.settings) || '{}');
+    document.getElementById('baseFare').value = settings.baseFare || '';
+    document.getElementById('minFare').value = settings.minFare || '';
+    document.getElementById('costPerKm').value = settings.costPerKm || '';
+    document.getElementById('costPerMin').value = settings.costPerMin || '';
+}
+
+function saveConfig() {
+    const settings = getValidatedSettings();
+    localStorage.setItem(CONFIG.storageKeys.settings, JSON.stringify(settings));
+    showError('Configurações salvas com sucesso!');
+}
+
+function loadProfile() {
+    const profile = document.getElementById('fareProfile').value;
+    let settings = {};
+    if (profile === 'padrao') settings = { baseFare: 5, minFare: 10, costPerKm: 2, costPerMin: 0.5 };
+    else if (profile === 'premium') settings = { baseFare: 10, minFare: 20, costPerKm: 3, costPerMin: 1 };
+    Object.keys(settings).forEach(key => document.getElementById(key).value = settings[key]);
+}
+
+function initAutocomplete() {
+    const originInput = document.getElementById('origin');
+    const destinationInput = document.getElementById('destination');
+    const suggestionsContainer = document.getElementById('suggestions');
+    let timeout;
+
+    async function fetchSuggestions(query, input) {
+        if (query.length < 3) {
+            suggestionsContainer.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${CONFIG.endpoints.geocoding}${encodeURIComponent(query)}`);
+            const data = await response.json();
+            if (data && data.length > 0) {
+                suggestionsContainer.innerHTML = data.slice(0, 5).map(item => `
+                    <div class="suggestion-item" data-value="${item.display_name}">
+                        ${item.display_name}
+                    </div>
+                `).join('');
+                suggestionsContainer.style.display = 'block';
+
+                // Posicionar o container abaixo do input ativo
+                const rect = input.getBoundingClientRect();
+                suggestionsContainer.style.top = `${rect.bottom + window.scrollY}px`;
+                suggestionsContainer.style.left = `${rect.left + window.scrollX}px`;
+                suggestionsContainer.style.width = `${rect.width}px`;
+
+                // Adicionar eventos de clique nas sugestões
+                document.querySelectorAll('.suggestion-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        input.value = item.dataset.value;
+                        suggestionsContainer.style.display = 'none';
+                    });
+                });
+            } else {
+                suggestionsContainer.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Erro ao buscar sugestões:', error);
+            suggestionsContainer.style.display = 'none';
+        }
+    }
+
+    // Debounce nos eventos de input
+    originInput.addEventListener('input', (e) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fetchSuggestions(e.target.value, originInput), 300);
+    });
+
+    destinationInput.addEventListener('input', (e) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fetchSuggestions(e.target.value, destinationInput), 300);
+    });
+
+    // Esconder sugestões ao clicar fora
+    document.addEventListener('click', (e) => {
+        if (!originInput.contains(e.target) && !destinationInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+            suggestionsContainer.style.display = 'none';
+        }
+    });
+}
+
+function saveToHistory(ride) {
+    const history = JSON.parse(localStorage.getItem(CONFIG.storageKeys.history) || '[]');
+    history.unshift({
+        date: new Date().toLocaleString(),
+        origin: document.getElementById('origin').value,
+        destination: document.getElementById('destination').value,
+        ...ride
+    });
+    localStorage.setItem(CONFIG.storageKeys.history, JSON.stringify(history));
+    loadHistory();
+}
+
+function loadHistory() {
+    const history = JSON.parse(localStorage.getItem(CONFIG.storageKeys.history) || '[]');
+    const historyList = document.getElementById('historyList');
+    historyList.innerHTML = history.map(item => `
+        <div class="history-item">
+            <p>${item.date}: ${item.origin} → ${item.destination}</p>
+            <p>R$ ${item.total}</p>
+        </div>
+    `).join('');
+}
+
+function clearHistory() {
+    localStorage.removeItem(CONFIG.storageKeys.history);
+    loadHistory();
+}
+
+function togglePanel() {
+    const panel = document.querySelector('.panel-content');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    document.querySelector('.toggle-btn').textContent = panel.style.display === 'none' ? '▼' : '▲';
+}
+
 window.addEventListener('DOMContentLoaded', initApp);

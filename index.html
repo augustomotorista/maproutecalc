@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/icon-192x192.png" type="image/png">
 </head>
 <body>
     <header>
@@ -26,11 +27,11 @@
     <div class="config-panel">
         <div class="panel-header">
             <h3>⚙️ Configurações</h3>
-            <button onclick="togglePanel()" class="toggle-btn">▼</button>
+            <button class="toggle-btn">▼</button>
         </div>
         <div class="panel-content">
             <div class="profile-selector">
-                <select id="fareProfile" onchange="loadProfile()">
+                <select id="fareProfile">
                     <option value="custom">Personalizado</option>
                     <option value="padrao">Tarifa Padrão</option>
                     <option value="premium">Tarifa Premium</option>
