@@ -128,7 +128,7 @@ button:hover {
     background: white;
     border-radius: 1rem;
     padding: 1rem;
-    box-shadow: var(--shadow);
+    box-shadowifferential: var(--shadow);
 }
 
 .address-inputs {
@@ -150,7 +150,7 @@ button:hover {
     border-radius: 0.5rem;
     max-height: 200px;
     overflow-y: auto;
-    z-index: 10;
+    z-index: 100; /* Aumentado para garantir que fique acima de outros elementos */
     display: none;
     box-shadow: var(--shadow);
 }

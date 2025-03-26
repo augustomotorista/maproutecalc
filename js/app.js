@@ -13,7 +13,7 @@ const CONFIG = {
 function initApp() {
     initMap();
     loadSettings();
-    initAutocomplete(); // Adicionado para o autocompletar
+    initAutocomplete();
     loadHistory();
     addEventListeners();
 }
@@ -173,7 +173,7 @@ function loadProfile() {
     if (profile === 'padrao') settings = { baseFare: 5, minFare: 10, costPerKm: 2, costPerMin: 0.5 };
     else if (profile === 'premium') settings = { baseFare: 10, minFare: 20, costPerKm: 3, costPerMin: 1 };
     Object.keys(settings).forEach(key => document.getElementById(key).value = settings[key]);
-    saveConfig(); // Salva automaticamente ao mudar o perfil
+    saveConfig();
 }
 
 function initAutocomplete() {
@@ -199,19 +199,12 @@ function initAutocomplete() {
                 `).join('');
                 suggestionsContainer.style.display = 'block';
 
-                // Posicionar o container abaixo do input ativo
-                const rect = input.getBoundingClientRect();
-                suggestionsContainer.style.top = `${rect.bottom + window.scrollY}px`;
-                suggestionsContainer.style.left = `${rect.left + window.scrollX}px`;
-                suggestionsContainer.style.width = `${rect.width}px`;
-
-                // Adicionar eventos de clique nas sugestões
-                document.querySelectorAll('.suggestion-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        input.value = item.dataset.value;
-                        suggestionsContainer.style.display = 'none';
-                    });
-                });
+                // Posicionar o container logo abaixo do input ativo
+                const inputRect = input.getBoundingClientRect();
+                const containerRect = document.querySelector('.address-inputs').getBoundingClientRect();
+                suggestionsContainer.style.top = `${inputRect.bottom - containerRect.top}px`;
+                suggestionsContainer.style.left = `${inputRect.left - containerRect.left}px`;
+                suggestionsContainer.style.width = `${inputRect.width}px`;
             } else {
                 suggestionsContainer.style.display = 'none';
             }
