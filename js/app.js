@@ -205,6 +205,22 @@ function initAutocomplete() {
                 suggestionsContainer.style.top = `${inputRect.bottom - containerRect.top}px`;
                 suggestionsContainer.style.left = `${inputRect.left - containerRect.left}px`;
                 suggestionsContainer.style.width = `${inputRect.width}px`;
+
+                // Adicionar eventos de clique e toque nas sugestões
+                document.querySelectorAll('.suggestion-item').forEach(item => {
+                    const selectSuggestion = () => {
+                        input.value = item.dataset.value;
+                        suggestionsContainer.style.display = 'none';
+                        input.focus(); // Mantém o foco no input após a seleção
+                    };
+
+                    // Suporte para desktop (click) e mobile (touchstart)
+                    item.addEventListener('click', selectSuggestion);
+                    item.addEventListener('touchstart', (e) => {
+                        e.preventDefault(); // Evita comportamento padrão como scroll
+                        selectSuggestion();
+                    });
+                });
             } else {
                 suggestionsContainer.style.display = 'none';
             }
