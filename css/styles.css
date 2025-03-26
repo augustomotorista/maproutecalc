@@ -40,6 +40,7 @@ header {
     margin: 1rem auto;
     border-radius: 1rem;
     z-index: 1;
+    border: 2px solid red; /* Temporário para verificar o contêiner */
 }
 
 .loading {
